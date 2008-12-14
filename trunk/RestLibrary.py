@@ -14,6 +14,7 @@ __version__ = "0.1a"
 
 import re
 from urlparse import urljoin
+import httplib
 from warnings import warn
 
 # Prefer httplib2, with fallback to (std) httplib.
@@ -21,7 +22,9 @@ try:
     from httplib2 import Http
 
     def http_request(url, method, data=None, headers=None):
-        return Http().request(url, method, data, headers)
+        h = Http()
+        h.follow_redirects = False
+        return h.request(url, method, data, headers)
 
 except ImportError:
     from urlparse import urlsplit
@@ -63,6 +66,7 @@ class CoreRestClient(object):
 
     def __init__(self):
         self._status = None
+        self._reason = None
         self._baseurl = None
         self._send_headers = {}
         self._reset()
@@ -76,7 +80,7 @@ class CoreRestClient(object):
         url = urljoin(self._baseurl, url)
         response, content = http_request(
                 url, method, data, headers=self._send_headers)
-        self._status = "%d %s" % (response.status, response.reason)
+        self._status, self._reason = response.status, response.reason
         self._response = response
         self._content = content
 
@@ -116,8 +120,16 @@ class CoreRestLibrary(CoreRestClient):
     def patch(self, url, data):
         self._do_request("PATCH", url, data)
 
-    def response(self, expected_status):
-        expect("status", expected_status, self._status)
+    def response_status(self, expected_status):
+        if not expected_status.isdigit():
+            status = httplib.responses[int(self._status)]
+        else:
+            status = "%d" % self._status
+        expect("status", expected_status, status)
+
+    def response(self, expected_response):
+        response = "%d %s" % (self._status, self._reason)
+        expect("status", expected_response, response)
 
     def follow(self):
         header = 'Location'
