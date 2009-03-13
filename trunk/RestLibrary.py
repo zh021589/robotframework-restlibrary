@@ -191,19 +191,19 @@ class XmlMixinSupport(object):
 
     def xpath_value(self, expr, expected):
         value = self.find_xpath(expr)
-        value = "".join(value)
         expect("xpath %r" % expr, expected, value)
         return value
 
     def xpath_regexp(self, expr, regexp):
         value = self.find_xpath(expr)
-        value = "".join(value)
         expect_regexp("xpath %r" % expr, regexp, value)
         return value
 
-    def find_xpath(self, expr):
+    def find_xpath(self, expr, tostr=True):
         value = self._eval_xpath(expr)
         expect_exists("xpath %r" % expr, value)
+        if tostr:
+            value = "".join(str(v) for v in value)
         return value
 
     def no_xpath(self, expr):
