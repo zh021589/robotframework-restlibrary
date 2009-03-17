@@ -16,6 +16,7 @@ import re
 from urlparse import urljoin
 import httplib
 from warnings import warn
+import hashlib
 
 # Prefer httplib2, with fallback to (std) httplib.
 try:
@@ -72,12 +73,13 @@ class CoreRestClient(object):
         self._reset()
 
     def _reset(self):
+        self._current_url = None
         self._response = None
         self._content = None
 
     def _do_request(self, method, url, data=None):
         self._reset()
-        url = urljoin(self._baseurl, url)
+        self._current_url = url = urljoin(self._baseurl, url)
         response, content = http_request(
                 url, method, data, headers=self._send_headers)
         self._status, self._reason = response.status, response.reason
@@ -86,6 +88,9 @@ class CoreRestClient(object):
 
     def _get_header(self, header):
         return self._response.get(header.lower())
+
+    def get_current_url(self):
+        return self._current_url
 
 
 class CoreRestLibrary(CoreRestClient):
@@ -150,9 +155,14 @@ class CoreRestLibrary(CoreRestClient):
 
     def has_body(self):
         expect_exists("response body", self._content)
+        return self._content
 
     def no_body(self):
         expect_not_exists("response body", self._content)
+
+    def body_checksum_is(self, algorithm, expected):
+        checksum = hashlib.new(algorithm, self._content).hexdigest()
+        expect("body checksum", expected, checksum)
 
 
 # Final library class (with ad hoc mixin support).
@@ -198,6 +208,9 @@ class XmlMixinSupport(object):
         value = self.find_xpath(expr)
         expect_regexp("xpath %r" % expr, regexp, value)
         return value
+
+    def find_xpath_nodes(self, expr):
+        return self.find_xpath(expr, False)
 
     def find_xpath(self, expr, tostr=True):
         value = self._eval_xpath(expr)
